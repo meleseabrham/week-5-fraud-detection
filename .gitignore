@@ -11,7 +11,9 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 
+
 # Specific file types (redundant if data/* works but good for safety)
 *.csv
 *.npy
 *.pkl
+*.txt
