@@ -1,8 +1,17 @@
-data/
+# Data exclusions
+data/*
+!data/raw/
+!data/processed/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Python/Environment
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .env
+
+# Specific file types (redundant if data/* works but good for safety)
 *.csv
 *.npy
 *.pkl
