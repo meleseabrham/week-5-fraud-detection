@@ -16,54 +16,91 @@ The raw data underwent several stages of refinement:
     - Converted IP addresses to integer format for efficient numerical processing.
 - **Missing Values**: Verified that the datasets had no significant missing values. Rows with missing country info (post-merge) were categorized as 'Unknown' rather than dropped to preserve data.
 
+**Sample Preprocessing Code:**
+```python
+def clean_data(df):
+    df = df.drop_duplicates()
+    if 'signup_time' in df.columns:
+        df['signup_time'] = pd.to_datetime(df['signup_time'])
+    if 'purchase_time' in df.columns:
+        df['purchase_time'] = pd.to_datetime(df['purchase_time'])
+    return df
+```
+
 ---
 
 ## 3. Exploratory Data Analysis (EDA) Insights
-### Key Visualizations & Findings:
-- **The Imbalance Gap**: 
-    - E-commerce data: **9.36%** fraud rate.
-    - Credit Card data: **0.17%** fraud rate.
-    - *Action*: Heavy resampling needed for Credit Card; SMOTE suggested for both.
-- **Country Risk Profiles**: High volume countries (USA, China) have high total fraud, but specific smaller countries showed higher *fraud rates* (fraud count / transaction count), indicating high-risk zones.
-- **Demographic Insights**: Age and purchase value distributions were relatively similar between classes, prompting the need for more complex, engineered features.
+
+### 3.1 Class Distribution
+We quantified the extreme imbalance in both datasets, which is the primary challenge for this task.
+
+| Dataset | Non-Fraud (0) | Fraud (1) | Fraud Rate |
+|---------|---------------|-----------|------------|
+| E-commerce (`Fraud_Data.csv`) | 136,961 | 14,151 | **9.36%** |
+| Credit Card (`creditcard.csv`) | 283,253 | 473 | **0.17%** |
+
+### 3.2 Feature-Target Relationships
+- **Velocity Peaks**: Higher transaction frequencies per device (`device_txn_count`) correlate strongly with fraud. 
+- **Temporal Patterns**: Fraudulent transactions show significant spikes in the first hour after user registration.
+- **Geospatial Hotspots**: While the USA has the highest volume of fraud, smaller clusters (e.g., specific Eastern European and North African IP ranges) show higher *proportionate* risk.
 
 ---
 
-## 4. Feature Engineering Choices
+## 4. Feature Engineering Justifications
+
 ### Behavioral Features
-1. **`time_since_signup_hours`**: Calculated as `purchase_time - signup_time`. 
-    - *Insight*: Fraudulent transactions often happen almost immediately after signup (0-1 hour), whereas legitimate users have a longer lead time.
-2. **Transaction Velocity**:
-    - **`device_txn_count`**: Number of transactions per `device_id`.
-    - **`ip_txn_count`**: Number of transactions per `ip_address`.
-    - *Logic*: Fraudsters often use one high-performance device or one network to cycle through many stolen identities.
+1. **`time_since_signup_hours`**: 
+    - *Logic*: Fraudsters often cycle through accounts immediately after creating them.
+    - *Snippet*: `df['time_since_signup'] = (df['purchase_time'] - df['signup_time']).dt.total_seconds() / 3600`
+2. **Transaction Velocity**: 
+    - *Insight*: Legitimate users rarely use the same device for 10+ signups or transactions in a short window.
+    - *Snippet*: `df['device_txn_count'] = df.groupby('device_id')['device_id'].transform('count')`
 
 ### IP Geolocation Mapping
 We implemented an optimized range-lookup using `pd.merge_asof`.
-- **Reasoning**: Standard joins cannot handle ranges (where `ip >= start` and `ip <= end`). 
-- **Efficiency**: This vectorized approach reduced processing time from minutes (using loops) to seconds.
+- **Reasoning**: Standard equi-joins are impossible here because IP addresses must fall within a range `[lower_bound, upper_bound]`.
+- **Snippet**:
+```python
+# Strategy: Convert IP to int and use merge_asof for range matching
+merged = pd.merge_asof(
+    fraud_df.sort_values('ip_address_int'), 
+    ip_country_df.sort_values('lower_bound_ip_address'), 
+    left_on='ip_address_int', 
+    right_on='lower_bound_ip_address'
+)
+```
 
 ---
 
-## 5. Class Imbalance Analysis & Strategy
+## 5. Class Imbalance Strategy
 Class imbalance poses a major risk: models might "cheat" by always predicting 0 (non-fraud) and still achieve >90% accuracy.
-- **Strategy**: **SMOTE (Synthetic Minority Over-sampling Technique)**.
-- **Implementation**: We generated synthetic samples for the minority class to balance the ratio exactly 50/50 in the training set.
-- **Justification**: Unlike random undersampling, SMOTE preserves all information from the majority class while adding descriptive variance to the minority class.
+
+### SMOTE Implementation
+- **Technique**: **SMOTE (Synthetic Minority Over-sampling Technique)**.
+- **Justification**: Unlike random undersampling, SMOTE preserves all information from the majority class while adding descriptive variance to the minority class by interpolating new samples.
+- **Execution Strategy**:
+    - Apply `RobustScaler` to numerical features (to handle outliers in transaction amounts).
+    - Fit SMOTE only on the training data to prevent label leakage.
+
+```python
+# Post-SMOTE Distribution check
+from imblearn.over_sampling import SMOTE
+sm = SMOTE(random_state=42)
+X_res, y_res = sm.fit_resample(X_processed, y)
+# Result: 50% Fraud / 50% Non-Fraud
+```
 
 ---
 
-## 6. Completed Work and Initial Analysis
-We have successfully built:
-1. **Source Module (`src/preprocessing.py`)**: Reusable, modular functions.
-2. **Automated Pipeline (`scripts/task1_pipeline.py`)**: End-to-end script that cleans data, engineers features, scales variables, applies SMOTE, and saves the final preprocessor and data artifacts.
-3. **Unit Tests**: Verified the cleaning and feature engineering logic with `pytest`.
-4. **Persisted Artifacts**: Preprocessors are saved as `.pkl` and data as `.npy` to prevent data leakage in the modeling phase.
+## 6. Completed Work and Repository Structure
+1. **Source Module (`src/preprocessing.py`)**: Reusable, modular functions with robust logging.
+2. **Automated Pipeline (`scripts/task1_pipeline.py`)**: End-to-end script for reproducibility.
+3. **Unit Tests**: Verified with `pytest` in `tests/test_preprocessing.py`.
+4. **Persisted Artifacts**: Preprocessors (`models/preprocessor_fraud.pkl`) and balanced data (`data/processed/X_train_fraud.npy`).
 
 ---
 
-## 7. Next Steps and Key Focus Areas
-1. **Task 2 (Modeling)**: Train Random Forest, XGBoost, and Logistic Regression.
-2. **Evaluation Metrics**: Move beyond Accuracy to **F1-Score, Precision-Recall (PRC) curves, and AUROC**.
-3. **Explainability**: Use SHAP to identify which features (like `device_txn_count`) contribute most to the fraud score.
-4. **Real-time Serving**: Prepare the model for low-latency inference via a Flask API.
+## 7. Next Steps for Task 2
+1. **Model Selection**: Benchmarking Random Forest, Gradient Boosting (XGBoost), and MLP.
+2. **Metric Optimization**: Prioritizing **Precision-Recall AUC** over ROC AUC due to the severity of class imbalance.
+3. **Model Explainability**: Integrating SHAP values to explain individual fraud predictions to forensic analysts.
