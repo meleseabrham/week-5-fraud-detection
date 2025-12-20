@@ -3,7 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 import logging
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from imblearn.over_sampling import SMOTE
 import joblib
@@ -69,7 +69,7 @@ def main():
             
             preprocessor = ColumnTransformer(
                 transformers=[
-                    ('num', StandardScaler(), num_features),
+                    ('num', RobustScaler(), num_features),
                     ('cat', OneHotEncoder(handle_unknown='ignore'), cat_features)
                 ]
             )
@@ -110,7 +110,6 @@ def main():
                 print_class_distribution(cc_df['Class'], "Credit Card Data (Original)")
                 
                 # Scaling
-                from sklearn.preprocessing import RobustScaler
                 scaler = RobustScaler()
                 cc_df[['scaled_amount', 'scaled_time']] = scaler.fit_transform(cc_df[['Amount', 'Time']])
                 cc_df = cc_df.drop(columns=['Amount', 'Time'])
