@@ -40,3 +40,4 @@ This project aims to detect fraudulent transactions using machine learning. It i
 ## Getting Started
 1. Install dependencies: `pip install -r requirements.txt`
 2. Run the Task 1 pipeline: `python scripts/task1_pipeline.py`
+3. Run tests: `pytest`
