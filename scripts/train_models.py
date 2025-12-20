@@ -34,7 +34,7 @@ def main():
     from sklearn.linear_model import LogisticRegression
     f_p = get_preprocessor(X_f_train)
     lr_f = Pipeline([('prep', f_p), ('clf', LogisticRegression(max_iter=1000, class_weight='balanced'))])
-    train_and_evaluate(lr_f, X_f_train, X_f_test, y_f_train, y_f_test, "Logistic Regression (Fraud)")
+    train_and_evaluate(lr_f, X_f_train, X_f_test, y_f_train, y_f_test, "Logistic Regression (Fraud)", plot=False)
 
     # 2. Ensemble - Random Forest with Tuning
     print("\n--- Tuning Random Forest ---")
@@ -48,7 +48,7 @@ def main():
     
     print(f"Best Parameters: {grid_search.best_params_}")
     best_rf = grid_search.best_estimator_
-    train_and_evaluate(best_rf, X_f_train, X_f_test, y_f_train, y_f_test, "Best Random Forest (Fraud)")
+    train_and_evaluate(best_rf, X_f_train, X_f_test, y_f_train, y_f_test, "Best Random Forest (Fraud)", plot=False)
 
     # 3. Cross-Validation
     cross_validate_model(best_rf, X_fraud, y_fraud)
