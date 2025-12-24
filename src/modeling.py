@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import logging
@@ -13,6 +14,7 @@ from sklearn.metrics import (
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+import joblib
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -43,6 +45,20 @@ def get_preprocessor(X):
             ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
         ])
     return preprocessor
+
+def get_feature_names(column_transformer):
+    """
+    Extract feature names from a ColumnTransformer.
+    """
+    feature_names = []
+    for name, transformer, columns in column_transformer.transformers_:
+        if name == 'remainder' and transformer == 'drop':
+            continue
+        if hasattr(transformer, 'get_feature_names_out'):
+            feature_names.extend(transformer.get_feature_names_out(columns))
+        else:
+            feature_names.extend(columns)
+    return feature_names
 
 def plot_evaluation(y_test, y_probs, y_pred, model_name="Model"):
     """
@@ -143,3 +159,26 @@ def cross_validate_model(model, X, y, cv=5):
     print(f"Mean AUC-PR: {results['test_average_precision'].mean():.4f} (+/- {results['test_average_precision'].std():.4f})")
     
     return results
+
+def save_model(model, file_path):
+    """
+    Save a model to a file using joblib.
+    """
+    try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        joblib.dump(model, file_path)
+        logger.info(f"Model saved to {file_path}")
+    except Exception as e:
+        logger.error(f"Error saving model: {e}")
+
+def load_model(file_path):
+    """
+    Load a model from a file using joblib.
+    """
+    try:
+        model = joblib.load(file_path)
+        logger.info(f"Model loaded from {file_path}")
+        return model
+    except Exception as e:
+        logger.error(f"Error loading model: {e}")
+        return None
