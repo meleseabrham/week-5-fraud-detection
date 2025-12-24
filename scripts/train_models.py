@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline
 
 # Add src to path
 sys.path.append(os.path.abspath('src'))
-from modeling import prepare_data, get_preprocessor, train_and_evaluate, cross_validate_model
+from modeling import prepare_data, get_preprocessor, train_and_evaluate, cross_validate_model, save_model
 
 def main():
     # Load data
@@ -52,6 +52,9 @@ def main():
 
     # 3. Cross-Validation
     cross_validate_model(best_rf, X_fraud, y_fraud)
+
+    # 4. Save best model
+    save_model(best_rf, 'models/best_rf_fraud.joblib')
 
 if __name__ == "__main__":
     main()
